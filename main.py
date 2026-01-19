@@ -3,6 +3,18 @@ import socket
 from time import sleep, ticks_ms, ticks_diff
 import machine
 from machine import Pin
+import urequests
+import os
+
+# VERSION - Update this when you make changes
+VERSION = "1.0.0"
+
+# GitHub settings
+GITHUB_USER = "your-github-username"
+GITHUB_REPO = "boat-monitor"
+GITHUB_BRANCH = "main"
+VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/version.txt"
+CODE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/main.py"
 
 # WiFi credentials
 SSID = "Joes iPhone"
@@ -28,7 +40,7 @@ AP_GATEWAY = '192.168.4.1'
 flow_pins = []
 pulse_counts = [0] * 8
 last_pulse_time = [0] * 8
-DEBOUNCE_MS = 50  # Ignore pulses within 50ms of previous pulse
+DEBOUNCE_MS = 50
 
 # Interrupt handlers for each pin with debouncing
 def make_counter(pin_num):
@@ -36,7 +48,6 @@ def make_counter(pin_num):
         global pulse_counts, last_pulse_time
         current_time = ticks_ms()
         
-        # Only count if enough time has passed since last pulse
         if ticks_diff(current_time, last_pulse_time[pin_num]) > DEBOUNCE_MS:
             pulse_counts[pin_num] += 1
             last_pulse_time[pin_num] = current_time
@@ -48,6 +59,7 @@ for i in range(8):
     pin.irq(trigger=Pin.IRQ_FALLING, handler=make_counter(i))
     flow_pins.append(pin)
 
+print(f"Boat Monitor v{VERSION}")
 print("Pulse counters initialized with debouncing")
 
 # Connect to WiFi
@@ -60,7 +72,6 @@ def connect_wifi():
     print(f'Connecting to "{SSID}"...')
     wlan.connect(SSID, PASSWORD)
     
-    # Wait for connection
     max_wait = 30
     while max_wait > 0:
         status = wlan.status()
@@ -70,12 +81,10 @@ def connect_wifi():
         print(f'Waiting for connection... (status: {status})')
         sleep(1)
     
-    # Check connection
     if wlan.status() != 3:
         print(f'\nConnection to "{SSID}" failed with status: {wlan.status()}')
         return None
     else:
-        # Set static IP
         wlan.ifconfig((STATIC_IP, SUBNET, GATEWAY, DNS))
         
         print('\nConnected to WiFi!')
@@ -99,13 +108,67 @@ def start_ap_mode():
     print(f'Connect to SSID: {AP_SSID}')
     print(f'Password: {AP_PASSWORD}')
     print(f'Then access: http://{AP_IP}')
-    print(f'Or try: http://{AP_HOSTNAME}.local')
     
     return AP_IP
 
+# Check for updates
+def check_for_updates():
+    try:
+        print("Checking for updates...")
+        response = urequests.get(VERSION_URL)
+        latest_version = response.text.strip()
+        response.close()
+        
+        print(f"Current version: {VERSION}")
+        print(f"Latest version: {latest_version}")
+        
+        if latest_version != VERSION:
+            print("New version available! Downloading...")
+            return download_update()
+        else:
+            print("Already on latest version")
+            return False
+            
+    except Exception as e:
+        print(f"Update check failed: {e}")
+        return False
+
+# Download and install update
+def download_update():
+    try:
+        # Download new code
+        print(f"Downloading from {CODE_URL}")
+        response = urequests.get(CODE_URL)
+        new_code = response.text
+        response.close()
+        
+        # Backup current version
+        try:
+            os.rename('main.py', 'main.py.bak')
+        except:
+            pass
+        
+        # Write new version
+        with open('main.py', 'w') as f:
+            f.write(new_code)
+        
+        print("Update downloaded successfully!")
+        print("Rebooting in 3 seconds...")
+        sleep(3)
+        machine.reset()
+        
+    except Exception as e:
+        print(f"Update failed: {e}")
+        # Restore backup if update failed
+        try:
+            os.remove('main.py')
+            os.rename('main.py.bak', 'main.py')
+        except:
+            pass
+        return False
+
 # HTML for the webpage
 def get_html():
-    # Read all pin states and pulse counts
     pin_states = ""
     for i in range(8):
         state = flow_pins[i].value()
@@ -120,7 +183,7 @@ def get_html():
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Boat Monitor</title>
+    <title>Boat Monitor v{VERSION}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="2">
     <style>
@@ -131,6 +194,7 @@ def get_html():
         th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
         th {{ background-color: #4CAF50; color: white; }}
         tr:hover {{ background-color: #f5f5f5; }}
+        .version {{ color: #999; font-size: 12px; margin-top: 20px; }}
     </style>
 </head>
 <body>
@@ -145,6 +209,7 @@ def get_html():
             {pin_states}
         </table>
         <p style="color: #666; font-size: 12px; margin-top: 20px;">Page auto-refreshes every 2 seconds</p>
+        <p class="version">Version {VERSION}</p>
     </div>
 </body>
 </html>
@@ -168,7 +233,6 @@ def start_server(ip):
             print('Client connected from', addr)
             request = cl.recv(1024)
             
-            # Send response
             response = get_html()
             cl.send('HTTP/1.1 200 OK\r\n')
             cl.send('Content-Type: text/html\r\n')
@@ -192,6 +256,9 @@ try:
     if ip is None:
         print('\nFalling back to Access Point mode')
         ip = start_ap_mode()
+    else:
+        # Only check for updates if connected to internet (not in AP mode)
+        check_for_updates()
     
     start_server(ip)
     
