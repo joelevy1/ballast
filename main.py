@@ -7,11 +7,11 @@ import urequests
 import os
 
 # VERSION - Update this when you make changes
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 # GitHub settings
-GITHUB_USER = "your-github-username"
-GITHUB_REPO = "boat-monitor"
+GITHUB_USER = "joelevy1"
+GITHUB_REPO = "ballast"
 GITHUB_BRANCH = "main"
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/version.txt"
 CODE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/main.py"
@@ -266,3 +266,8 @@ except Exception as e:
     print('Failed to start:', e)
     sleep(5)
     machine.reset()
+```
+
+Now you need to create a `version.txt` file in your repo with just:
+```
+1.0.0
