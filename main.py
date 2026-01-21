@@ -263,6 +263,8 @@ def get_html():
         .nav {{ margin-bottom: 20px; }}
         .nav a {{ display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; }}
         .nav a:hover {{ background-color: #45a049; }}
+        button {{ background-color: #2196F3; color: white; padding: 10px 20px; border: none; cursor: pointer; border-radius: 5px; margin-top: 10px; }}
+        button:hover {{ background-color: #0b7dda; }}
     </style>
 </head>
 <body>
@@ -283,6 +285,9 @@ def get_html():
         </table>
         <p style="color: #666; font-size: 12px; margin-top: 20px;">Page auto-refreshes every 2 seconds</p>
         <p class="version">Version {VERSION}</p>
+        <form method="POST" action="/update">
+            <button type="submit">Check for Updates</button>
+        </form>
     </div>
 </body>
 </html>
@@ -365,7 +370,7 @@ def get_wifi_html():
     </div>
     <div class="container">
         <h2>Add New Network</h2>
-        <form method="POST" action="/wifi/add">
+        <form method="GET" action="/wifi/add">
             <label>SSID:</label><br>
             <input type="text" name="ssid" required><br><br>
             <label>Password:</label><br>
@@ -441,10 +446,22 @@ def start_server(ip):
                         cl.send('Connection: close\r\n\r\n')
                         cl.sendall(response)
                     
-                    elif path == '/wifi/add' and method == 'POST':
-                        # Get POST data
-                        post_data = request.split('\r\n\r\n')[1] if '\r\n\r\n' in request else ''
-                        params = parse_post_data(post_data.encode())
+                    elif path.startswith('/wifi/add'):
+                        # Handle both GET and POST
+                        if method == 'POST':
+                            post_data = request.split('\r\n\r\n')[1] if '\r\n\r\n' in request else ''
+                            params = parse_post_data(post_data.encode())
+                        else:
+                            # Parse GET parameters from URL
+                            params = {}
+                            if '?' in path:
+                                query = path.split('?')[1]
+                                for pair in query.split('&'):
+                                    if '=' in pair:
+                                        key, value = pair.split('=', 1)
+                                        # URL decode
+                                        value = value.replace('+', ' ').replace('%20', ' ')
+                                        params[key] = value
                         
                         if 'ssid' in params and 'password' in params:
                             USER_WIFI_NETWORKS.append([params['ssid'], params['password']])
@@ -490,6 +507,33 @@ def start_server(ip):
                         cl.close()
                         sleep(2)
                         machine.reset()
+                    
+                    elif path == '/update' and method == 'POST':
+                        cl.send('HTTP/1.1 200 OK\r\n')
+                        cl.send('Content-Type: text/html\r\n')
+                        cl.send('Connection: close\r\n\r\n')
+                        update_html = '''<html>
+                        <head>
+                            <meta http-equiv="refresh" content="3;url=/">
+                            <style>
+                                body { font-family: Arial; margin: 40px; }
+                                .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <h1>Checking for Updates...</h1>
+                                <p>Please wait...</p>
+                            </div>
+                        </body>
+                        </html>'''
+                        cl.sendall(update_html)
+                        cl.close()
+                        
+                        # Check for updates (this may reboot if update found)
+                        check_for_updates()
+                        # If we get here, no update was found or update failed
+                        # Page will auto-redirect back to dashboard
                     
                     else:
                         cl.send('HTTP/1.1 404 Not Found\r\n')
