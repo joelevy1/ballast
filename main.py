@@ -8,14 +8,14 @@ import os
 import json
 
 # VERSION - Update this when you make changes
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
-# Import config
+# Import default config
 try:
     from config import *
 except:
-    print("Error loading config.py, using defaults")
-    WIFI_NETWORKS = []
+    print("Error loading config.py, using hardcoded defaults")
+    DEFAULT_WIFI_NETWORKS = []
     AP_SSID = "ballast"
     AP_PASSWORD = "ballast123"
     STATIC_IP = '172.20.10.5'
@@ -29,6 +29,26 @@ except:
     GITHUB_REPO = "ballast"
     GITHUB_BRANCH = "main"
     DEBOUNCE_MS = 50
+
+# Import user config (create if doesn't exist)
+try:
+    from user_config import USER_WIFI_NETWORKS
+except:
+    print("Creating new user_config.py")
+    USER_WIFI_NETWORKS = []
+    # Create the file
+    with open('user_config.py', 'w') as f:
+        f.write("""# user_config.py - User-added WiFi networks (NOT updated from GitHub)
+
+# Additional WiFi networks added by user
+USER_WIFI_NETWORKS = [
+    # Add your networks here via the web interface
+    # Format: ["SSID", "PASSWORD"],
+]
+""")
+
+# Merge WiFi networks - user networks first (higher priority), then defaults
+WIFI_NETWORKS = USER_WIFI_NETWORKS + DEFAULT_WIFI_NETWORKS
 
 # GitHub URLs
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/version.txt"
@@ -60,44 +80,19 @@ for i in range(8):
 print(f"Boat Monitor v{VERSION}")
 print("Pulse counters initialized with debouncing")
 
-# Save config to file
-def save_config():
+# Save user config to file
+def save_user_config():
     try:
-        config_content = f"""# config.py - WiFi configuration storage
+        config_content = f"""# user_config.py - User-added WiFi networks (NOT updated from GitHub)
 
-# List of WiFi networks to try (in order)
-# Format: [SSID, PASSWORD]
-WIFI_NETWORKS = {WIFI_NETWORKS}
-
-# Fallback AP settings
-AP_SSID = "{AP_SSID}"
-AP_PASSWORD = "{AP_PASSWORD}"
-AP_HOSTNAME = "{AP_HOSTNAME}"
-
-# Static IP configuration for iPhone hotspot
-STATIC_IP = '{STATIC_IP}'
-SUBNET = '{SUBNET}'
-GATEWAY = '{GATEWAY}'
-DNS = '{DNS}'
-
-# AP mode IP (when acting as hotspot)
-AP_IP = '{AP_IP}'
-AP_SUBNET = '{AP_SUBNET}'
-AP_GATEWAY = '{AP_GATEWAY}'
-
-# GitHub settings
-GITHUB_USER = "{GITHUB_USER}"
-GITHUB_REPO = "{GITHUB_REPO}"
-GITHUB_BRANCH = "{GITHUB_BRANCH}"
-
-# Flow meter settings
-DEBOUNCE_MS = {DEBOUNCE_MS}
+# Additional WiFi networks added by user
+USER_WIFI_NETWORKS = {USER_WIFI_NETWORKS}
 """
-        with open('config.py', 'w') as f:
+        with open('user_config.py', 'w') as f:
             f.write(config_content)
         return True
     except Exception as e:
-        print(f"Error saving config: {e}")
+        print(f"Error saving user config: {e}")
         return False
 
 # Connect to WiFi - try all networks in order
@@ -186,7 +181,7 @@ def download_update():
         new_code = response.text
         response.close()
         
-        # Download new config.py
+        # Download new config.py (defaults only)
         print(f"Downloading config.py from {CONFIG_URL}")
         response = urequests.get(CONFIG_URL)
         new_config = response.text
@@ -202,13 +197,14 @@ def download_update():
         except:
             pass
         
-        # Write new versions
+        # Write new versions (user_config.py is NOT touched)
         with open('main.py', 'w') as f:
             f.write(new_code)
         with open('config.py', 'w') as f:
             f.write(new_config)
         
         print("Update downloaded successfully!")
+        print("User WiFi networks preserved in user_config.py")
         print("Rebooting in 3 seconds...")
         sleep(3)
         machine.reset()
@@ -235,10 +231,18 @@ def get_html():
         state = flow_pins[i].value()
         status_text = "HIGH" if state == 1 else "LOW"
         color = "#00ff00" if state == 1 else "#ff0000"
+        
+        # Calculate time since last pulse
+        time_since = "Never"
+        if last_pulse_time[i] > 0:
+            seconds_since = (ticks_ms() - last_pulse_time[i]) / 1000
+            time_since = f"{seconds_since:.1f}s ago"
+        
         pin_states += f'''<tr>
             <td>Flow Meter {i+1} (GP{i})</td>
             <td><span style="color: {color}; font-weight: bold;">{status_text}</span></td>
             <td style="font-weight: bold; font-size: 18px;">{pulse_counts[i]}</td>
+            <td style="font-size: 12px; color: #666;">{time_since}</td>
         </tr>\n'''
     
     html = f"""<!DOCTYPE html>
@@ -271,8 +275,9 @@ def get_html():
         <table>
             <tr>
                 <th>Flow Meter</th>
-                <th>Status</th>
+                <th>Pin Status</th>
                 <th>Total Pulses</th>
+                <th>Last Pulse</th>
             </tr>
             {pin_states}
         </table>
@@ -286,19 +291,35 @@ def get_html():
 
 # HTML for WiFi settings page
 def get_wifi_html():
-    networks_html = ""
-    for i, (ssid, password) in enumerate(WIFI_NETWORKS):
-        networks_html += f'''<tr>
+    # Show user networks
+    user_networks_html = ""
+    for i, (ssid, password) in enumerate(USER_WIFI_NETWORKS):
+        user_networks_html += f'''<tr>
             <td>{i+1}</td>
             <td>{ssid}</td>
             <td>{'*' * len(password)}</td>
+            <td>User</td>
             <td>
                 <form method="POST" action="/wifi/delete" style="display:inline;">
                     <input type="hidden" name="index" value="{i}">
+                    <input type="hidden" name="type" value="user">
                     <button type="submit" style="background-color: #f44336; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">Delete</button>
                 </form>
             </td>
         </tr>\n'''
+    
+    # Show default networks (read-only)
+    default_networks_html = ""
+    for i, (ssid, password) in enumerate(DEFAULT_WIFI_NETWORKS):
+        default_networks_html += f'''<tr style="background-color: #f9f9f9;">
+            <td>{len(USER_WIFI_NETWORKS) + i + 1}</td>
+            <td>{ssid}</td>
+            <td>{'*' * len(password)}</td>
+            <td>Default</td>
+            <td style="color: #999;">-</td>
+        </tr>\n'''
+    
+    networks_html = user_networks_html + default_networks_html
     
     html = f"""<!DOCTYPE html>
 <html>
@@ -319,6 +340,7 @@ def get_wifi_html():
         input[type="text"], input[type="password"] {{ width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }}
         button {{ background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; border-radius: 5px; }}
         button:hover {{ background-color: #45a049; }}
+        .note {{ color: #666; font-size: 12px; font-style: italic; }}
     </style>
 </head>
 <body>
@@ -328,12 +350,14 @@ def get_wifi_html():
     </div>
     <div class="container">
         <h1>WiFi Network Settings</h1>
-        <h2>Current Networks</h2>
+        <p class="note">User networks are tried first, then default networks. Default networks are updated from GitHub and cannot be deleted.</p>
+        <h2>All Networks</h2>
         <table>
             <tr>
                 <th>Priority</th>
                 <th>SSID</th>
                 <th>Password</th>
+                <th>Type</th>
                 <th>Action</th>
             </tr>
             {networks_html}
@@ -423,8 +447,11 @@ def start_server(ip):
                         params = parse_post_data(post_data.encode())
                         
                         if 'ssid' in params and 'password' in params:
-                            WIFI_NETWORKS.append([params['ssid'], params['password']])
-                            save_config()
+                            USER_WIFI_NETWORKS.append([params['ssid'], params['password']])
+                            # Update merged list
+                            global WIFI_NETWORKS
+                            WIFI_NETWORKS = USER_WIFI_NETWORKS + DEFAULT_WIFI_NETWORKS
+                            save_user_config()
                             print(f"Added network: {params['ssid']}")
                         
                         # Redirect to wifi page
@@ -437,12 +464,15 @@ def start_server(ip):
                         post_data = request.split('\r\n\r\n')[1] if '\r\n\r\n' in request else ''
                         params = parse_post_data(post_data.encode())
                         
-                        if 'index' in params:
+                        if 'index' in params and 'type' in params:
                             try:
                                 index = int(params['index'])
-                                if 0 <= index < len(WIFI_NETWORKS):
-                                    removed = WIFI_NETWORKS.pop(index)
-                                    save_config()
+                                if params['type'] == 'user' and 0 <= index < len(USER_WIFI_NETWORKS):
+                                    removed = USER_WIFI_NETWORKS.pop(index)
+                                    # Update merged list
+                                    global WIFI_NETWORKS
+                                    WIFI_NETWORKS = USER_WIFI_NETWORKS + DEFAULT_WIFI_NETWORKS
+                                    save_user_config()
                                     print(f"Removed network: {removed[0]}")
                             except:
                                 pass
