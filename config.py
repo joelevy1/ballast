@@ -1,8 +1,7 @@
-# config.py - WiFi configuration storage
+# config.py - Default configuration (updated from GitHub)
 
-# List of WiFi networks to try (in order)
-# Format: [SSID, PASSWORD]
-WIFI_NETWORKS = [
+# Default WiFi networks
+DEFAULT_WIFI_NETWORKS = [
     ["Joes iPhone", "123456789"],
 ]
 
