@@ -183,7 +183,7 @@ def get_html():
     # Alert banner
     alert_html = ""
     if alerts:
-        alert_list = "<br>".join(f"⚠️ {alert}" for alert in alerts)
+        alert_list = "<br>".join(f"WARNING: {alert}" for alert in alerts)
         alert_html = f'''
         <div class="alert-banner">
             {alert_list}
@@ -220,7 +220,7 @@ def get_html():
             else:
                 display_val = f"{gallons:.1f} gal"
             
-            status = "✓" if is_running else "●"
+            status = "RUNNING" if is_running else "STOPPED"
             status_class = "running" if is_running else "stopped"
             
             pump_data.append({
@@ -287,6 +287,7 @@ def get_html():
 <html>
 <head>
     <title>Ballast Monitor v{VERSION}</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="2">
     <style>
@@ -425,7 +426,7 @@ def get_html():
 </head>
 <body>
     <div class="container">
-        <h1>🚤 Ballast Monitor</h1>
+        <h1>Ballast Monitor</h1>
         
         {alert_html}
         

@@ -14,14 +14,9 @@ GITHUB_REPO = "joelevy1/ballast"
 GITHUB_BRANCH = "main"
 
 # Files to check for updates (relative to repo root)
-UPDATE_FILES = [
-    "main.py",           # BLE main entry
-    "main_wifi.py",      # WiFi main entry
-    "flow_meters.py",    # Flow meter manager
-    "ble_service.py",    # BLE GATT service
-    "ble_advertising.py", # BLE advertising
-    "config.py"          # This file
-]
+# DISABLED - Line ending issues with GitHub uploads
+# Update files manually via Thonny when needed
+UPDATE_FILES = []
 
 # Flow meter calibration
 # Set this after running 1 gallon through a meter and counting pulses
