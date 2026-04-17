@@ -53,7 +53,7 @@ LBS_PER_GALLON = 8.34
 VERSION = "4-5-2026-v1.0"
 
 # Operating mode: "wifi" or "ble"
-MODE = "wifi"  # Change to "ble" for Bluetooth mode
+MODE = "ble"  # Change to "ble" for Bluetooth mode
 
 # File versions (update when modifying files)
 FILE_VERSIONS = {
