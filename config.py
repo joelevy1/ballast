@@ -16,7 +16,15 @@ GITHUB_BRANCH = "main"
 # Files to check for updates (relative to repo root)
 # DISABLED - Line ending issues with GitHub uploads
 # Update files manually via Thonny when needed
-UPDATE_FILES = []
+UPDATE_FILES = [
+    "main.py",
+    "main_wifi.py",
+    "flow_meters.py",
+    "ble_service.py",
+    "ble_advertising.py",
+    "config.py"
+]
+
 
 # Flow meter calibration
 # Set this after running 1 gallon through a meter and counting pulses
