@@ -4,6 +4,7 @@ Version: 4-5-2026-v1.0
 """
 
 import bluetooth
+import struct
 from micropython import const
 
 VERSION = "4-5-2026-v1.0"
