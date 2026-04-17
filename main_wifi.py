@@ -165,12 +165,12 @@ def install_github_updates(files):
             if response.status_code == 200:
                 with open(filename, 'w') as f:
                     f.write(response.text)
-                results.append(f"✓ {filename}")
+                results.append(f"OK {filename}")
             else:
-                results.append(f"✗ {filename} (HTTP {response.status_code})")
+                results.append(f"FAIL {filename} (HTTP {response.status_code})")
             response.close()
         except Exception as e:
-            results.append(f"✗ {filename} ({str(e)})")
+            results.append(f"FAIL {filename} ({str(e)})")
     
     return results
 
@@ -564,17 +564,24 @@ def start_server(ip):
                             results = install_github_updates(files)
                             result_html = '<br>'.join(results)
                             response = f'''<!DOCTYPE html>
-<html><head><title>Update Complete</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<html><head><title>Update Complete</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="3;url=/" /></head>
 <body style="font-family: Arial; padding: 20px; background: #1a1a1a; color: #fff;">
 <h2>Update Results</h2>
 <p>{result_html}</p>
-<p><strong>Restart required!</strong></p>
-<br><a href="/" style="color:#2196F3;">Back</a>
+<p><strong>Restarting in 3 seconds...</strong></p>
 </body></html>'''
+                            cl.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n')
+                            cl.sendall(response)
+                            cl.close()
+                            # Auto-restart after sending response
+                            import machine
+                            sleep(3)
+                            machine.reset()
                         else:
                             response = '<html><body>Error</body></html>'
-                        cl.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n')
-                        cl.sendall(response)
+                            cl.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n')
+                            cl.sendall(response)
                     
                     else:
                         cl.send('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
