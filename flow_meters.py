@@ -1,55 +1,53 @@
 """
-Flow Meter Manager - GPIO and Pulse Counting
-Version: 4-5-2026-v1.0
+Flow Meter Handler
+Version: 4-18-2026-v1.2
+Handles 8 flow meters with interrupt-based counting
 """
 
 from machine import Pin
-from time import ticks_ms, ticks_diff
+import time
 
-VERSION = "4-5-2026-v1.0"
-
-class FlowMeterManager:
-    def __init__(self):
-        self.pins = []
-        self.pulse_counts = [0] * 8
-        self.last_trigger_time = [0] * 8
-        self.debounce_ms = 50
+class FlowMeters:
+    def __init__(self, pins):
+        self._pins = pins
+        self._counts = [0] * len(pins)
+        self._last_time = [0] * len(pins)
+        self._meters = []
         
-        # Initialize GPIO pins GP0-GP7
-        for i in range(8):
-            pin = Pin(i, Pin.IN, Pin.PULL_UP)
-            pin.irq(trigger=Pin.IRQ_FALLING, handler=self._make_handler(i))
-            self.pins.append(pin)
+        # Setup GPIO pins with pull-up and interrupts
+        for i, pin_num in enumerate(pins):
+            pin = Pin(pin_num, Pin.IN, Pin.PULL_UP)
+            pin.irq(trigger=Pin.IRQ_FALLING, handler=lambda p, idx=i: self._pulse_handler(idx))
+            self._meters.append(pin)
         
-        print(f"Flow meters initialized: 8 channels (v{VERSION})")
+        print(f"Flow meters initialized: {len(pins)} channels (v4-18-2026-v1.2)")
     
-    def _make_handler(self, pin_index):
-        def handler(pin):
-            current_time = ticks_ms()
-            if ticks_diff(current_time, self.last_trigger_time[pin_index]) > self.debounce_ms:
-                self.pulse_counts[pin_index] += 1
-                self.last_trigger_time[pin_index] = current_time
-        return handler
+    def _pulse_handler(self, meter_id):
+        """Handle pulse interrupt with debouncing"""
+        current_time = time.ticks_ms()
+        
+        # Debounce: ignore pulses within 50ms
+        if time.ticks_diff(current_time, self._last_time[meter_id]) > 50:
+            self._counts[meter_id] += 1
+            self._last_time[meter_id] = current_time
     
-    def get_pulse_count(self, pin_index):
-        if 0 <= pin_index < 8:
-            return self.pulse_counts[pin_index]
+    def get_count(self, meter_id):
+        """Get pulse count for specific meter"""
+        if 0 <= meter_id < len(self._counts):
+            return self._counts[meter_id]
         return 0
     
-    def get_all_pulse_counts(self):
-        return self.pulse_counts.copy()
+    def get_all_counts(self):
+        """Get all meter counts"""
+        return self._counts.copy()
     
-    def reset_counter(self, pin_index):
-        if 0 <= pin_index < 8:
-            self.pulse_counts[pin_index] = 0
+    def reset_meter(self, meter_id):
+        """Reset specific meter"""
+        if 0 <= meter_id < len(self._counts):
+            self._counts[meter_id] = 0
+            print(f"Reset meter {meter_id}")
     
-    def reset_all_counters(self):
-        self.pulse_counts = [0] * 8
-    
-    def get_pin_state(self, pin_index):
-        if 0 <= pin_index < 8:
-            return self.pins[pin_index].value()
-        return None
-    
-    def get_all_pin_states(self):
-        return [pin.value() for pin in self.pins]
+    def reset_all(self):
+        """Reset all meters"""
+        self._counts = [0] * len(self._counts)
+        print("Reset all meters")

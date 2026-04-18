@@ -1,74 +1,64 @@
 """
-Ballast Monitor Configuration
-Modify these settings as needed
+Configuration for Ballast Monitor
+Version: 4-18-2026-v1.2
 """
 
-# WiFi Networks (tried in order)
-WIFI_NETWORKS = [
-    {"ssid": "Levy-Guest", "password": "welcomehome"},
-    {"ssid": "Levy2.4", "password": "@Sonoma4real"}
-]
+# System version
+VERSION = "4-18-2026-v1.2"
 
-# GitHub repository for firmware updates
-GITHUB_REPO = "joelevy1/ballast"
+# Mode: "wifi" or "ble"
+MODE = "ble"
+
+# WiFi credentials
+WIFI_SSID = "Levy-Guest"
+WIFI_PASSWORD = "welcomehome"
+
+# Backup WiFi
+WIFI_SSID_BACKUP = "Levy2.4"
+WIFI_PASSWORD_BACKUP = "@Sonoma4real"
+
+# GitHub OTA update settings
+GITHUB_USER = "joelevy1"
+GITHUB_REPO = "ballast"
 GITHUB_BRANCH = "main"
 
-# Files to check for updates (relative to repo root)
-# DISABLED - Line ending issues with GitHub uploads
-# Update files manually via Thonny when needed
+# Files to check for updates (only used in WiFi mode)
 UPDATE_FILES = [
     "main.py",
     "main_wifi.py",
-    "flow_meters.py",
     "ble_service.py",
     "ble_advertising.py",
+    "flow_meters.py",
     "config.py"
 ]
 
-
-# Flow meter calibration
-# Set this after running 1 gallon through a meter and counting pulses
-PULSES_PER_GALLON = 450  # Default - UPDATE THIS after testing!
+# Flow meter GPIO pins (GP0-GP7)
+FLOW_METER_PINS = [0, 1, 2, 3, 4, 5, 6, 7]
 
 # Tank configuration
-TANK_CONFIG = {
-    "Port": {
-        "meters": [1, 2],  # GP1=Port Top, GP2=Port Btm
-        "names": ["Port Top (White)", "Port Btm (Green)"]
+# Each tank has two pumps (top and bottom)
+TANKS = {
+    'port': {
+        'pumps': [1, 2],  # GP1 (Top White), GP2 (Bottom Green)
+        'name': 'Port Tank'
     },
-    "Starboard": {
-        "meters": [0, 3],  # GP0=Strb Top, GP3=Strb Btm
-        "names": ["Strb Top (White)", "Strb Btm (Green)"]
+    'starboard': {
+        'pumps': [0, 3],  # GP0 (Top White), GP3 (Bottom Green)
+        'name': 'Starboard Tank'
     },
-    "Mid": {
-        "meters": [4, 5],  # GP4=Mid Port, GP5=Mid Strb
-        "names": ["Mid Port (Blue)", "Mid Strb (Blue)"]
+    'mid': {
+        'pumps': [4, 5],  # GP4 (Port Blue), GP5 (Starboard Blue)
+        'name': 'Mid Tank'
     },
-    "Forward": {
-        "meters": [6, 7],  # GP6=Fwd Port, GP7=Fwd Mid
-        "names": ["Fwd Port (Yellow)", "Fwd Mid (Yellow)"]
+    'forward': {
+        'pumps': [6, 7],  # GP6 (Port Yellow), GP7 (Mid Yellow)
+        'name': 'Forward Tank'
     }
 }
 
-# Alert thresholds
-PUMP_FAILURE_THRESHOLD = 5  # seconds - how long to check for flow difference
-MIN_FLOW_RATE = 0.1  # gallons/min - minimum to consider pump "running"
+# Flow meter calibration
+PULSES_PER_GALLON = 450  # Estimated, needs physical calibration
+POUNDS_PER_GALLON = 8.34
 
-# Water density
-LBS_PER_GALLON = 8.34
-
-# System info
-VERSION = "4-5-2026-v1.0"
-
-# Operating mode: "wifi" or "ble"
-MODE = "ble"  # Change to "ble" for Bluetooth mode
-
-# File versions (update when modifying files)
-FILE_VERSIONS = {
-    "main.py": "4-5-2026-v1.0",
-    "main_wifi.py": "4-5-2026-v1.0",
-    "flow_meters.py": "4-5-2026-v1.0",
-    "ble_service.py": "4-5-2026-v1.0",
-    "ble_advertising.py": "4-5-2026-v1.0",
-    "config.py": "4-5-2026-v1.0"
-}
+# BLE settings
+BLE_DEVICE_NAME = "Ballast Monitor"

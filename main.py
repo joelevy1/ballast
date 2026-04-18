@@ -1,55 +1,70 @@
 """
-Ballast Flow Meter Monitor - Unified Entry Point
-Switches between WiFi and BLE mode based on config.py
-Version: 4-5-2026-v1.0
+Ballast Monitor - Main Entry Point
+Version: 4-18-2026-v1.2
+Routes to WiFi or BLE mode based on config
 """
 
-from config import VERSION, FILE_VERSIONS, MODE
+import config
 
-print(f"\nBallast Monitor v{VERSION}")
+print(f"Ballast Monitor v{config.VERSION}")
 print("=" * 50)
-print(f"Mode: {MODE.upper()}")
+print(f"Mode: {config.MODE.upper()}")
+
+# Print file versions
+import os
+files_to_check = ["ble_service.py", "main.py", "main_wifi.py", "config.py", "ble_advertising.py", "flow_meters.py"]
 print("File Versions:")
-for filename, version in FILE_VERSIONS.items():
-    print(f"  {filename}: {version}")
+for fname in files_to_check:
+    try:
+        with open(fname, 'r') as f:
+            for line in f:
+                if 'Version:' in line:
+                    version = line.split('Version:')[1].strip().strip('"\'')
+                    print(f"  {fname}: {version}")
+                    break
+    except:
+        pass
+
 print("=" * 50)
 
-if MODE == "wifi":
-    print("\nStarting WiFi mode...")
-    print("Loading main_wifi module...")
+# Route to appropriate mode
+if config.MODE == "wifi":
     import main_wifi
+    main_wifi.run()
+elif config.MODE == "ble":
+    import bluetooth
+    from ble_service import BLEService
+    from ble_advertising import BLEAdvertising
+    from flow_meters import FlowMeters
+    import time
     
-elif MODE == "ble":
-    print("\nStarting BLE mode...")
-    from flow_meters import FlowMeterManager
-    from ble_service import BallastBLEService
-    from ble_advertising import start_advertising
-    from time import sleep
+    print("Starting BLE mode...")
     
     # Initialize flow meters
     print("Initializing flow meters...")
-    flow_manager = FlowMeterManager()
+    flow_meters = FlowMeters(config.FLOW_METER_PINS)
     
-    # Initialize BLE service
+    # Initialize BLE
     print("Starting BLE service...")
-    ble_service = BallastBLEService(flow_manager)
+    ble = bluetooth.BLE()
+    ble.active(True)
+    
+    # Create GATT service
+    ble_service = BLEService(ble, flow_meters, config.VERSION)
     
     # Start advertising
-    print("BLE advertising as 'Ballast Monitor'")
-    start_advertising()
+    advertising = BLEAdvertising(ble, config.BLE_DEVICE_NAME)
+    advertising.start_advertising(services=[bluetooth.UUID(0x181A)])
     
-    print("\nSystem ready!")
+    print("System ready!")
     print("Connect with BLE app")
-    print("Device name: Ballast Monitor")
+    print(f"Device name: {config.BLE_DEVICE_NAME}")
     print("=" * 50)
-    print()
     
-    # Main loop - update BLE when clients connected
+    # Main loop - update flow values every 100ms
     while True:
-        if ble_service.is_connected():
-            ble_service.update_flow_data()
-        sleep(0.1)
-
+        ble_service.update_flow_values()
+        time.sleep_ms(100)
 else:
-    print(f"\nERROR: Invalid MODE '{MODE}' in config.py")
-    print("Valid options: 'wifi' or 'ble'")
+    print(f"Unknown mode: {config.MODE}")
+    print("Set MODE to 'wifi' or 'ble' in config.py")
