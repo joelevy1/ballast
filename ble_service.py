@@ -93,7 +93,21 @@ class BLEService:
                 if 0 <= meter_id < 8:
                     print(f"Command: Reset meter {meter_id}")
                     self._flow_meters.reset_meter(meter_id)
-    
+
+        elif cmd == 0x04:
+            # Next boot: main.py runs WiFi web UI once (wifi_once.flag). config.MODE stays "ble".
+            print("Command: Schedule one-shot WiFi boot")
+            try:
+                with open("wifi_once.flag", "w") as f:
+                    f.write("1")
+                import time
+                import machine
+
+                time.sleep_ms(500)
+                machine.reset()
+            except Exception as e:
+                print(f"wifi_once schedule error: {e}")
+
     def _handle_file_control(self, data):
         if len(data) < 1:
             return

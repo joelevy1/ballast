@@ -4,6 +4,23 @@ Version: 4-18-2026-v1.2
 Routes to WiFi or BLE mode based on config
 """
 
+# One-shot WiFi session: BLE command 0x04 creates wifi_once.flag then reboots.
+# Next boot runs main_wifi once; flag is removed so following boots use config.MODE (default "ble").
+try:
+    import os
+    if "wifi_once.flag" in os.listdir():
+        with open("wifi_once.flag", "r") as _wf:
+            if _wf.read().strip() == "1":
+                try:
+                    os.remove("wifi_once.flag")
+                except OSError:
+                    pass
+                print("One-shot WiFi boot (wifi_once.flag)")
+                import main_wifi
+                main_wifi.run()
+except Exception as _e:
+    print("wifi_once check:", _e)
+
 import config
 
 print(f"Ballast Monitor v{config.VERSION}")

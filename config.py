@@ -6,7 +6,7 @@ Version: 4-18-2026-v1.2
 # System version
 VERSION = "4-18-2026-v1.2"
 
-# Mode: "wifi" or "ble"
+# Mode: "wifi" or "ble" — default BLE; use iOS app Settings "WiFi once" for a one-shot WiFi session without editing this file.
 MODE = "ble"
 
 # WiFi credentials
