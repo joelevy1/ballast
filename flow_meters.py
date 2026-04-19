@@ -51,3 +51,21 @@ class FlowMeters:
         """Reset all meters"""
         self._counts = [0] * len(self._counts)
         print("Reset all meters")
+
+
+class FlowMeterManager:
+    """Used by main_wifi.py (WiFi web server). Wraps FlowMeters with that API."""
+
+    def __init__(self):
+        import config
+
+        self._fm = FlowMeters(config.FLOW_METER_PINS)
+
+    def get_all_pulse_counts(self):
+        return self._fm.get_all_counts()
+
+    def reset_counter(self, meter_id):
+        self._fm.reset_meter(meter_id)
+
+    def reset_all_counters(self):
+        self._fm.reset_all()

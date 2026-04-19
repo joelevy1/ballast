@@ -39,7 +39,8 @@ class BLEService:
         
         self._register_services()
         self._ble.irq(self._irq)
-        
+        self.set_version_info(version)
+
         print(f"BLE GATT services registered (v{version})")
     
     def _register_services(self):

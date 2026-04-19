@@ -11,8 +11,11 @@ import json
 import urequests
 from config import *
 
-print(f"\nBallast Monitor v{VERSION} - WiFi Mode")
-print("=" * 60)
+try:
+    from urllib.parse import quote_plus
+except ImportError:
+    def quote_plus(s):
+        return str(s).replace(" ", "+")
 
 # Global settings
 settings = {
@@ -53,7 +56,16 @@ last_check_time = time()
 def connect_wifi():
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
-    
+    try:
+        hn = DHCP_HOSTNAME
+    except NameError:
+        hn = "Ballast-Monitor"
+    try:
+        wlan.config(dhcp_hostname=hn)
+        print("DHCP hostname:", hn)
+    except Exception as e:
+        print("dhcp_hostname not set:", e)
+
     for network_config in WIFI_NETWORKS:
         ssid = network_config["ssid"]
         password = network_config["password"]
@@ -126,7 +138,7 @@ def check_github_updates():
     
     try:
         for filename in UPDATE_FILES:
-            url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{filename}"
+            url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{filename}"
             
             try:
                 response = urequests.get(url, timeout=5)
@@ -158,7 +170,7 @@ def install_github_updates(files):
     results = []
     
     for filename in files:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/{filename}"
+        url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{filename}"
         
         try:
             response = urequests.get(url, timeout=10)
@@ -173,6 +185,22 @@ def install_github_updates(files):
             results.append(f"FAIL {filename} ({str(e)})")
     
     return results
+
+def _version_line_for_file(filename):
+    try:
+        with open(filename, "r") as f:
+            for line in f:
+                if "Version:" in line:
+                    return line.split("Version:", 1)[1].strip().strip('"').strip("'")
+    except:
+        pass
+    return "unknown"
+
+def build_file_versions():
+    out = {}
+    for fn in ["main.py", "main_wifi.py", "flow_meters.py", "ble_service.py", "ble_advertising.py", "config.py"]:
+        out[fn] = _version_line_for_file(fn)
+    return out
 
 # Generate HTML
 def get_html():
@@ -282,7 +310,8 @@ def get_html():
         total_display = f"{total_gallons:.1f} gal"
     
     units_btn_text = "Show Gallons" if settings["show_pounds"] else "Show Pounds"
-    
+    fv = build_file_versions()
+
     html = f'''<!DOCTYPE html>
 <html>
 <head>
@@ -456,11 +485,11 @@ def get_html():
             <details style="margin-top: 10px;">
                 <summary style="cursor: pointer; color: #2196F3;">File Versions</summary>
                 <div style="margin-top: 10px; font-family: monospace; font-size: 12px;">
-                    main_wifi.py: {FILE_VERSIONS.get("main_wifi.py", "unknown")}<br>
-                    flow_meters.py: {FILE_VERSIONS.get("flow_meters.py", "unknown")}<br>
-                    ble_service.py: {FILE_VERSIONS.get("ble_service.py", "unknown")}<br>
-                    ble_advertising.py: {FILE_VERSIONS.get("ble_advertising.py", "unknown")}<br>
-                    config.py: {FILE_VERSIONS.get("config.py", "unknown")}
+                    main_wifi.py: {fv.get("main_wifi.py", "unknown")}<br>
+                    flow_meters.py: {fv.get("flow_meters.py", "unknown")}<br>
+                    ble_service.py: {fv.get("ble_service.py", "unknown")}<br>
+                    ble_advertising.py: {fv.get("ble_advertising.py", "unknown")}<br>
+                    config.py: {fv.get("config.py", "unknown")}
                 </div>
             </details>
         </div>
@@ -583,6 +612,32 @@ def start_server(ip):
                             cl.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n')
                             cl.sendall(response)
                     
+                    elif path == '/api/pulses' and method == 'GET':
+                        update_flow_history()
+                        counts = flow_manager.get_all_pulse_counts()
+                        body = json.dumps({"pulses": counts})
+                        cl.send('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n')
+                        cl.sendall(body.encode('utf-8'))
+                    
+                    elif path == '/api/info' and method == 'GET':
+                        update_flow_history()
+                        counts = flow_manager.get_all_pulse_counts()
+                        body = json.dumps({
+                            "version": VERSION,
+                            "ip": ip,
+                            "pulses": counts,
+                            "files": build_file_versions(),
+                        })
+                        cl.send('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n')
+                        cl.sendall(body.encode('utf-8'))
+                    
+                    elif path == '/reboot_to_ble' and method == 'POST':
+                        cl.send('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK')
+                        cl.close()
+                        import machine
+                        sleep(0.3)
+                        machine.reset()
+                    
                     else:
                         cl.send('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
             
@@ -595,11 +650,63 @@ def start_server(ip):
             except:
                 pass
 
-# Main
-try:
+def notify_wifi_ip(ip_addr):
+    msg = "Ballast WiFi " + str(ip_addr) + " — open http://" + str(ip_addr) + "/ (v" + VERSION + ")"
+    title = "Ballast Monitor"
+
+    try:
+        topic = NTFY_TOPIC
+    except NameError:
+        topic = ""
+    if topic:
+        try:
+            url = "https://ntfy.sh/" + topic
+            r = urequests.post(url, data=msg.encode("utf-8"), timeout=10)
+            r.close()
+            print("ntfy notification sent")
+        except Exception as e:
+            print("ntfy notify failed:", e)
+
+    try:
+        uk = PUSHOVER_USER_KEY
+        at = PUSHOVER_APP_TOKEN
+    except NameError:
+        uk = ""
+        at = ""
+    if uk and at:
+        try:
+            body = (
+                "token="
+                + quote_plus(at)
+                + "&user="
+                + quote_plus(uk)
+                + "&title="
+                + quote_plus(title)
+                + "&message="
+                + quote_plus(msg)
+            )
+            r = urequests.post(
+                "https://api.pushover.net/1/messages.json",
+                data=body.encode("utf-8"),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=12,
+            )
+            r.close()
+            print("Pushover notification sent")
+        except Exception as e:
+            print("Pushover notify failed:", e)
+
+def run():
+    print(f"\nBallast Monitor v{VERSION} - WiFi Mode")
+    print("=" * 60)
     ip = connect_wifi()
+    notify_wifi_ip(ip)
     start_server(ip)
-except KeyboardInterrupt:
-    print("\nStopping...")
-except Exception as e:
-    print(f"Error: {e}")
+
+if __name__ == "__main__":
+    try:
+        run()
+    except KeyboardInterrupt:
+        print("\nStopping...")
+    except Exception as e:
+        print(f"Error: {e}")

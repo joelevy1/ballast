@@ -6,7 +6,7 @@ Version: 4-18-2026-v1.2
 # System version
 VERSION = "4-18-2026-v1.2"
 
-# Mode: "wifi" or "ble" — default BLE; use iOS app Settings "WiFi once" for a one-shot WiFi session without editing this file.
+# Mode: "wifi" or "ble" (default BLE). iOS app Settings can schedule one-shot WiFi via BLE cmd 0x04; no need to edit MODE here.
 MODE = "ble"
 
 # WiFi credentials
@@ -16,6 +16,22 @@ WIFI_PASSWORD = "welcomehome"
 # Backup WiFi
 WIFI_SSID_BACKUP = "Levy2.4"
 WIFI_PASSWORD_BACKUP = "@Sonoma4real"
+
+WIFI_NETWORKS = [
+    {"ssid": WIFI_SSID, "password": WIFI_PASSWORD},
+    {"ssid": WIFI_SSID_BACKUP, "password": WIFI_PASSWORD_BACKUP},
+]
+
+# Shown on many routers' DHCP client lists (MicroPython: set before connect).
+DHCP_HOSTNAME = "Ballast-Monitor"
+
+# Optional: ntfy.sh topic (install ntfy app). Leave empty to disable.
+NTFY_TOPIC = ""
+
+# Optional: Pushover (https://pushover.net) — install Pushover on iPhone; create an "Application" to get an API token.
+# Leave either empty to disable. User Key is on your Pushover account; App token is from "Create an Application".
+PUSHOVER_USER_KEY = "u5dv9e9fqtrwpzjm2f9tfas6btoziu"
+PUSHOVER_APP_TOKEN = "apd81oscwawp7nrf9mcuqyh1ymh4z4"
 
 # GitHub OTA update settings
 GITHUB_USER = "joelevy1"
@@ -59,6 +75,18 @@ TANKS = {
 # Flow meter calibration
 PULSES_PER_GALLON = 450  # Estimated, needs physical calibration
 POUNDS_PER_GALLON = 8.34
+LBS_PER_GALLON = POUNDS_PER_GALLON
+
+# main_wifi.py: minimum gal/min to consider a pump "running" for mismatch alerts
+MIN_FLOW_RATE = 0.5
+
+# Display layout for WiFi HTML (meters = flow meter indices; names = pump row labels)
+TANK_CONFIG = {
+    "Port": {"meters": TANKS["port"]["pumps"], "names": ["Top (White)", "Btm (Green)"]},
+    "Starboard": {"meters": TANKS["starboard"]["pumps"], "names": ["Top (White)", "Btm (Green)"]},
+    "Mid": {"meters": TANKS["mid"]["pumps"], "names": ["Port (Blue)", "Stbd (Blue)"]},
+    "Forward": {"meters": TANKS["forward"]["pumps"], "names": ["Port (Yellow)", "Mid (Yellow)"]},
+}
 
 # BLE settings
 BLE_DEVICE_NAME = "Ballast Monitor"
