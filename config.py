@@ -6,6 +6,33 @@ Version: 4-18-2026-v1.2
 # System version
 VERSION = "4-18-2026-v1.2"
 
+
+def read_py_file_version(filename):
+    """
+    Read a 'Version: …' tag from the top of a .py file.
+    Ignores false matches (e.g. if "Version:" in line, HTML templates).
+    """
+    try:
+        with open(filename, "r") as f:
+            head = f.read(8000)
+    except OSError:
+        return "unknown"
+    for line in head.split("\n"):
+        if "Version:" not in line:
+            continue
+        st = line.strip()
+        if st.startswith("if ") and '"Version:"' in line:
+            continue
+        if ".split(" in line and "Version:" in line:
+            continue
+        if "{VERSION}" in line or "</" in line or "<strong" in line:
+            continue
+        part = line.split("Version:", 1)[1].strip().strip('"').strip("'")
+        part = part.split("#")[0].strip()
+        if part and len(part) < 120 and not part.startswith("{"):
+            return part
+    return "unknown"
+
 # Mode: "wifi" or "ble" (default BLE). iOS app Settings can schedule one-shot WiFi via BLE cmd 0x04; no need to edit MODE here.
 MODE = "ble"
 

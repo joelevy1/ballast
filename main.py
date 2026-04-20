@@ -31,13 +31,9 @@ print(f"Mode: {config.MODE.upper()}")
 print("File Versions:")
 for fname in ["ble_service.py", "main.py", "main_wifi.py", "config.py", "ble_advertising.py", "flow_meters.py"]:
     try:
-        with open(fname, 'r') as f:
-            for line in f:
-                if 'Version:' in line:
-                    version = line.split('Version:')[1].strip().strip('"\'')
-                    print(f"  {fname}: {version}")
-                    break
-    except:
+        v = config.read_py_file_version(fname)
+        print(f"  {fname}: {v}")
+    except Exception:
         print(f"  {fname}: Not found")
 
 print("=" * 50)

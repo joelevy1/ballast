@@ -1,15 +1,34 @@
 """
 Ballast Flow Meter Monitor - WiFi Web Version v3.0
+Version: 4-18-2026-v1.2
 Features: Tank pair display, pump failure alerts, GitHub updates, calibration
 """
 
 import network
 import socket
 from time import sleep, time
-from flow_meters import FlowMeterManager
 import json
 import urequests
 from config import *
+
+try:
+    from flow_meters import FlowMeterManager
+except ImportError:
+    # Older flow_meters.py on device had only FlowMeters
+    from flow_meters import FlowMeters
+
+    class FlowMeterManager:
+        def __init__(self):
+            self._fm = FlowMeters(FLOW_METER_PINS)
+
+        def get_all_pulse_counts(self):
+            return self._fm.get_all_counts()
+
+        def reset_counter(self, meter_id):
+            self._fm.reset_meter(meter_id)
+
+        def reset_all_counters(self):
+            self._fm.reset_all()
 
 try:
     from urllib.parse import quote_plus
@@ -186,20 +205,10 @@ def install_github_updates(files):
     
     return results
 
-def _version_line_for_file(filename):
-    try:
-        with open(filename, "r") as f:
-            for line in f:
-                if "Version:" in line:
-                    return line.split("Version:", 1)[1].strip().strip('"').strip("'")
-    except:
-        pass
-    return "unknown"
-
 def build_file_versions():
     out = {}
     for fn in ["main.py", "main_wifi.py", "flow_meters.py", "ble_service.py", "ble_advertising.py", "config.py"]:
-        out[fn] = _version_line_for_file(fn)
+        out[fn] = read_py_file_version(fn)
     return out
 
 # Generate HTML
