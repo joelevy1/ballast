@@ -1,6 +1,6 @@
 """
 Ballast Monitor - Main Entry Point
-Version: 4-18-2026-v1.2
+Version: 4-19-2026-v1.3
 Routes to WiFi or BLE mode based on config
 """
 

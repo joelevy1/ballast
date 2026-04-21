@@ -1,6 +1,6 @@
 """
 BLE Advertising Helper
-Version: 4-18-2026-v1.2
+Version: 4-19-2026-v1.3
 """
 
 import bluetooth
